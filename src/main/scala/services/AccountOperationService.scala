@@ -3,6 +3,7 @@ import zio._
 import db.QuillContext
 import javax.sql.DataSource
 import model._
+import model.AppError._
 
 trait AccountOperationService {
     def create(
@@ -12,6 +13,7 @@ trait AccountOperationService {
        description:String
     ): Task[AccountOperation]
   
+
 }
 
 
@@ -31,10 +33,10 @@ final case class AccountOperationServiceLive(dataSource: DataSource) extends Acc
               _   <- run(query[AccountOperation].insertValue(lift(operation ))).provideEnvironment(ZEnvironment(dataSource))
 
             } yield  operation 
+
 }
 
 object  AccountOperationService{
 
-
-    val layer: ZLayer[DataSource,Nothing,AccountOperationServiceLive]= ZLayer.fromFunction(AccountOperationServiceLive.apply _)
+    val layer: ZLayer[DataSource, Nothing, AccountOperationServiceLive] = ZLayer.fromFunction(AccountOperationServiceLive.apply _)
 }

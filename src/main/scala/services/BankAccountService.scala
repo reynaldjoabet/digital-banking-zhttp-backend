@@ -2,8 +2,9 @@ package services
 import zio._
 import db.QuillContext
 import javax.sql.DataSource
-import java.time.LocalDate
+import AccountOperationService._
 import model._
+import model.AppError._
 
 trait BankAccountService {
     def createSavingAccount(
@@ -23,7 +24,9 @@ def findAll():Task[List[BankAccount]]
 
 def get(accountId:String):Task[Option[BankAccount]]
 def delete(accountId:String):Task[Unit]
-
+  def debit(accountId:String,amount:Double,description:String):Task[Unit]
+  def credit(accountId:String,amount:Double,description:String):Task[Unit]
+  def transfer(accountIdSource:String, accountIdDestination:String,amount:Double): Task[Unit]
 
 }
 
@@ -31,7 +34,7 @@ def delete(accountId:String):Task[Unit]
   * BankAccountService . This implementation uses a DataSource, which will concretely be
   * a connection pool.
   */
-final case class BankAccountServiceLive(dataSource: DataSource) extends BankAccountService {
+final case class BankAccountServiceLive(dataSource: DataSource,accountOperationService: AccountOperationService) extends BankAccountService {
 
   // QuillContext needs to be imported here to expose the methods in the QuillContext object.
 
@@ -69,6 +72,45 @@ final case class BankAccountServiceLive(dataSource: DataSource) extends BankAcco
       .unit
 
 
+  override def debit(accountId: String, amount: Double, description: String): Task[Unit] = {
+    get(accountId).flatMap{
+      case Some(value)if value.balance>amount =>
+        val balance=value.balance-amount
+        run(
+          dynamicQuery[BankAccount]
+            .filter(_.accountId == lift(accountId))
+            .update(setValue(_.balance,balance))
+        )
+      case Some(value) if value.balance<amount => throw BalanceNotSufficientException
+      case None => throw BankAccountNotFoundException
+    }
+  }.flatMap(_ =>accountOperationService.create(amount,OperationType.DEBIT,accountId,description))
+    .provideEnvironment(ZEnvironment(dataSource))
+    .unit
+
+
+  override def credit(accountId: String, amount: Double, description: String): Task[Unit] = {
+    get(accountId).flatMap{
+      case Some(value) =>
+        val balance=value.balance+amount
+        run(
+          dynamicQuery[BankAccount]
+            .filter(_.accountId == lift(accountId))
+            .update(setValue(_.balance,balance))
+        )
+      case None => throw BankAccountNotFoundException
+    }
+  }.flatMap(_ =>accountOperationService.create(amount,OperationType.CREDIT,accountId,description))
+    .provideEnvironment(ZEnvironment(dataSource))
+    .unit
+
+
+  override def transfer(accountIdSource:String, accountIdDestination:String,amount:Double): Task[Unit]=
+    debit(accountIdSource, amount, "Transfer to " + accountIdDestination)
+      .*>(credit(accountIdDestination, amount, "transfer from" + accountIdSource)).orElseFail(FailedTransferException)
+
+
+
 
 }
 
@@ -77,5 +119,9 @@ final case class BankAccountServiceLive(dataSource: DataSource) extends BankAcco
 
 object BankAccountService{
 
-    val layer: ZLayer[DataSource,Nothing, BankAccountServiceLive]= ZLayer.fromFunction( BankAccountServiceLive.apply _)
+    val bankAccountLayer: ZLayer[DataSource with AccountOperationService, Nothing, BankAccountServiceLive] = ZLayer.fromFunction( BankAccountServiceLive.apply _)
+
+
+
+
 }

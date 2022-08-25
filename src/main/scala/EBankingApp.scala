@@ -4,6 +4,9 @@ import configurations.AppConfig
 import db.QuillContext
 import model.OperationType
 import services._
+import zhttp.service.Server
+import zhttp.http.Middleware._
+
 object EBankingApp  extends ZIOAppDefault{
 
     override def run: ZIO[Environment with ZIOAppArgs with Scope,Any,Any] =
@@ -13,7 +16,7 @@ object EBankingApp  extends ZIOAppDefault{
             _   <- service.reset
             _   <- service.migrate
             accountService<-ZIO.service[BankAccountService]
-            accountOperationService<-ZIO.service[AccountOperationService]
+            //accountOperationService<-ZIO.service[AccountOperationService]
             customerService<-ZIO.service[CustomerService]
            _ <- customerService.populateCustomerDb()
             customers <- customerService.findAll()
@@ -22,10 +25,13 @@ object EBankingApp  extends ZIOAppDefault{
 
             accounts  <-accountService.findAll()
             amount    <-Random.nextIntBetween(1,20000)
-            _        <-ZIO.foreach(accounts)(account=>accountOperationService.create(amount=amount,operationType = OperationType.DEBIT,account.accountId))
-            amount1    <-Random.nextIntBetween(1,19000)
-            _        <-ZIO.foreach(accounts)(account=>accountOperationService.create(amount=amount1,operationType = OperationType.CREDIT,account.accountId))
+           _        <-ZIO.foreach(accounts)(account=>accountService.credit(account.accountId,10000+amount,"Credit"))
+            amount1    <-Random.nextIntBetween(1,190)
+            _        <-ZIO.foreach(accounts)(account=>accountService.debit(account.accountId,amount=amount1,"Debit"))
 
-        } yield ()).provide(QuillContext.dataSourceLayer,MigrationService.layer,BankAccountService.layer, CustomerService.layer,AccountOperationService.layer)
+            port <- System.envOrElse("PORT", "8080").map(_.toInt)
+            //_    <- Server.start(port,  Middleware.cors() @@ loggingMiddleware)
+
+        } yield ()).provide(QuillContext.dataSourceLayer,MigrationService.layer,BankAccountService.bankAccountLayer, CustomerService.layer,AccountOperationService.layer)
   
 }
