@@ -10,7 +10,7 @@ final case class BankAccount (
      balance:Double,
     createdAt:LocalDateTime,
     accountStatus:AccountStatus,
-    customerId:Long,
+    customerId:Int,
     overDraft:Option[Double],
     interestRate:Option[Double],
     accountType:AccountType
@@ -38,4 +38,6 @@ def makeSavingAccount(
 
 implicit val codec: JsonCodec[BankAccount] =
         DeriveJsonCodec.gen[BankAccount]
+
+        DeriveJsonEncoder.toJson()
 }

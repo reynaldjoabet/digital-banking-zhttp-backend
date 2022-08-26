@@ -3,7 +3,6 @@ import com.typesafe.config.ConfigFactory
 import io.getquill.{PostgresZioJdbcContext, SnakeCase}
 import zio._
 import io.getquill.jdbczio.Quill
-
 import javax.sql.DataSource
 import scala.jdk.CollectionConverters.MapHasAsJava
 

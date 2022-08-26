@@ -6,6 +6,7 @@ sealed trait  AccountStatus
 object  AccountStatus{
 implicit val codec: JsonCodec[AccountStatus] =
         DeriveJsonCodec.gen[AccountStatus]
+        DeriveJsonCodec
 
   case object  CREATED    extends  AccountStatus
   case  object ACTIVATED   extends  AccountStatus

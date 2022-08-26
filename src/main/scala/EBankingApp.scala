@@ -2,36 +2,63 @@
 import zio._
 import configurations.AppConfig
 import db.QuillContext
-import model.OperationType
+
 import services._
-import zhttp.service.Server
-import zhttp.http.Middleware._
+
+import  routes._
+import zio.json._
 
 object EBankingApp  extends ZIOAppDefault{
 
     override def run: ZIO[Environment with ZIOAppArgs with Scope,Any,Any] =
-        (for{
+       ZIO.serviceWithZIO[EbankAppServer](_.start)
+      .provide(QuillContext.dataSourceLayer,
+       MigrationService.layer,
+       BankAccountService.bankAccountLayer, 
+       CustomerService.layer,
+       AccountOperationService.layer,
+       CustomerRoutes.layer,
+       BankAccountRoutes.layer,
+       EbankAppServer.serverLayer 
+       )
 
-            service<-ZIO.service[MigrationService]
-            _   <- service.reset
-            _   <- service.migrate
-            accountService<-ZIO.service[BankAccountService]
-            //accountOperationService<-ZIO.service[AccountOperationService]
-            customerService<-ZIO.service[CustomerService]
-           _ <- customerService.populateCustomerDb()
-            customers <- customerService.findAll()
-            _         <- ZIO.foreach(customers)(customer =>accountService.createCurrentAccount( balance=9000,customerId = customer.customerId,overDraft = Some(800.0)))
-            _         <- ZIO.foreach(customers)(customer =>accountService.createSavingAccount( balance=34000,customerId = customer.customerId,interestRate= Some(5.5)))
+        sealed trait AccountStatus
 
-            accounts  <-accountService.findAll()
-            amount    <-Random.nextIntBetween(1,20000)
-           _        <-ZIO.foreach(accounts)(account=>accountService.credit(account.accountId,10000+amount,"Credit"))
-            amount1    <-Random.nextIntBetween(1,190)
-            _        <-ZIO.foreach(accounts)(account=>accountService.debit(account.accountId,amount=amount1,"Debit"))
+            case object CREATED extends AccountStatus
 
-            port <- System.envOrElse("PORT", "8080").map(_.toInt)
-            //_    <- Server.start(port,  Middleware.cors() @@ loggingMiddleware)
+            case object ACTIVATED extends AccountStatus
 
-        } yield ()).provide(QuillContext.dataSourceLayer,MigrationService.layer,BankAccountService.bankAccountLayer, CustomerService.layer,AccountOperationService.layer)
+            case object SUSPENDED extends AccountStatus
+
+            implicit val accountDecoder: JsonDecoder[AccountStatus] = DeriveJsonDecoder.gen[AccountStatus]
+
+            implicit val createdEncoder :JsonEncoder[CREATED.type] = JsonEncoder[String].contramap(_.toString)
+
+            implicit val activatedEncoder: JsonEncoder[ACTIVATED.type] = JsonEncoder[String].contramap(_.toString)
+
+          implicit val suspendedEncoder: JsonEncoder[SUSPENDED.type] = JsonEncoder[String].contramap(_.toString)
+
+         println((CREATED.toJson, ACTIVATED.toJson, SUSPENDED.toJson))
+
+            val result = """
+                           |{
+                           |"CREATED":"CREATED"
+                           |}
+                           |""".stripMargin.fromJson[AccountStatus]
+
+            val result2 = """
+                            |{
+                            |"ACTIVATED":"ACTIVATED"
+                            |}
+                            |""".stripMargin.fromJson[AccountStatus]
+
+            val result3 = """
+                            |{
+                            |"SUSPENDE":"SUSPENDED"
+                            |}
+                            |""".stripMargin.fromJson[AccountStatus]
+
+
+            println((result, result2, result3))
   
 }

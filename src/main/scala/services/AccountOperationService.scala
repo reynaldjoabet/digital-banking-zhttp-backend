@@ -6,13 +6,15 @@ import model._
 import model.AppError._
 
 trait AccountOperationService {
+
     def create(
        amount:Double,
      operationType:OperationType,
      bankAccountId:String,
        description:String
     ): Task[AccountOperation]
-  
+
+  def findAll(accountId:String):Task[List[AccountOperation]]
 
 }
 
@@ -34,6 +36,10 @@ final case class AccountOperationServiceLive(dataSource: DataSource) extends Acc
 
             } yield  operation 
 
+
+  override def findAll(accountId: String): Task[List[AccountOperation]] =
+    run(query[AccountOperation].filter(_.bankAccountId==lift(accountId)))
+      .provideEnvironment(ZEnvironment(dataSource))          
 }
 
 object  AccountOperationService{
