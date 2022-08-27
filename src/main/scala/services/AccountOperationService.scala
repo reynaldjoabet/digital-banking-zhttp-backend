@@ -1,4 +1,5 @@
 package services
+
 import zio._
 import db.QuillContext
 import javax.sql.DataSource
@@ -7,42 +8,51 @@ import model.AppError._
 
 trait AccountOperationService {
 
-    def create(
-       amount:Double,
-     operationType:OperationType,
-     bankAccountId:String,
-       description:String
-    ): Task[AccountOperation]
+  def create(
+    amount: Double,
+    operationType: OperationType,
+    bankAccountId: String,
+    description: String,
+  ): Task[AccountOperation]
 
-  def findAll(accountId:String):Task[List[AccountOperation]]
+  def findAll(accountId: String): Task[List[AccountOperation]]
 
 }
 
-
 /** AccountOperationService is a service which provides the "live" implementation of the
-  * AccountOperationService . This implementation uses a DataSource, which will concretely be
-  * a connection pool.
+  * AccountOperationService . This implementation uses a DataSource, which will concretely be a
+  * connection pool.
   */
-final case class AccountOperationServiceLive(dataSource: DataSource) extends AccountOperationService {
+final case class AccountOperationServiceLive(dataSource: DataSource)
+  extends AccountOperationService {
 
   // QuillContext needs to be imported here to expose the methods in the QuillContext object.
   import QuillContext._
 
+  override def create(
+    amount: Double,
+    operationType: OperationType,
+    bankAccountId: String,
+    description: String,
+  ): Task[AccountOperation] =
+    for {
+      operation <- AccountOperation.make(amount, operationType, bankAccountId, description)
+      _ <- run(query[AccountOperation].insertValue(lift(operation)))
+        .provideEnvironment(ZEnvironment(dataSource))
 
-  override def create(amount: Double, operationType: OperationType, bankAccountId: String,description:String): Task[AccountOperation] =
-  for {
-              operation <-AccountOperation.make(amount,operationType,bankAccountId,description)
-              _   <- run(query[AccountOperation].insertValue(lift(operation ))).provideEnvironment(ZEnvironment(dataSource))
+    } yield operation
 
-            } yield  operation 
+  override def findAll(accountId: String): Task[List[AccountOperation]] = run(
+    query[AccountOperation].filter(_.bankAccountId == lift(accountId))
+  )
+    .provideEnvironment(ZEnvironment(dataSource))
 
-
-  override def findAll(accountId: String): Task[List[AccountOperation]] =
-    run(query[AccountOperation].filter(_.bankAccountId==lift(accountId)))
-      .provideEnvironment(ZEnvironment(dataSource))          
 }
 
-object  AccountOperationService{
+object AccountOperationService {
 
-    val layer: ZLayer[DataSource, Nothing, AccountOperationServiceLive] = ZLayer.fromFunction(AccountOperationServiceLive.apply _)
+  val layer: ZLayer[DataSource, Nothing, AccountOperationServiceLive] = ZLayer.fromFunction(
+    AccountOperationServiceLive.apply _
+  )
+
 }

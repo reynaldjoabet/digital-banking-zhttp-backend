@@ -2,8 +2,7 @@ package model
 
 sealed trait AppError extends Exception
 
-
-object AppError{
+object AppError {
   case object CustomerNotFoundException extends AppError
   case object BankAccountNotFoundException extends AppError
   case object BalanceNotSufficientException extends AppError
