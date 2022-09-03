@@ -2,25 +2,31 @@ package model
 
 import io.getquill.MappedEncoding
 import zio.json._
+import model.AccountType.CurrentAccount
+import model.AccountType.SavingAccount
 
-sealed trait AccountType
+sealed trait AccountType {
+
+  override def toString(): String =
+    this match {
+      case CurrentAccount => "CurrentAccount"
+      case SavingAccount  => "SavingAccount"
+    }
+
+}
 
 object AccountType {
   case object CurrentAccount extends AccountType
   case object SavingAccount extends AccountType
 
-  def fromString(str: String): AccountType =
+  // implicit val codec: JsonCodec[AccountType] = DeriveJsonCodec.gen[AccountType]
+
+  implicit def accountTypeToString(accountType: AccountType): String = accountType.toString()
+
+  implicit def fromString(str: String): AccountType =
     str match {
       case "CurrentAccount" => CurrentAccount
       case "SavingAccount"  => SavingAccount
-
     }
 
-  implicit val codec: JsonCodec[AccountType] = DeriveJsonCodec.gen[AccountType]
-
-  implicit val encodeCurrency: MappedEncoding[AccountType, String] =
-    MappedEncoding[AccountType, String](_.toString)
-
-  implicit val decodeCurrency: MappedEncoding[String, AccountType] =
-    MappedEncoding[String, AccountType](AccountType.fromString(_))
 }

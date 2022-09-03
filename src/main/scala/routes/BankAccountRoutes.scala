@@ -6,7 +6,7 @@ import zio.json._
 import services._
 import model.AppError._
 import api._
-import model.AccountType
+import model.AccountType._
 
 /** BankAccountRoutes is a service that provides the routes for the CustumerService API. The routes
   * serve the "customers" endpoint.
@@ -89,16 +89,26 @@ final case class BankAccountRoutes(
 
       }
 
-    /** // Creates a new Account from the parsed CreateBankAccount request body and returns it as
-      * JSON. case req @ Method.POST -> !! / "accounts" => for { body <-
-      * req.bodyAsString.orElseFail(MissingBodyError) jsonBody <-
-      * ZIO.fromEither(body.fromJson[CreateBankAccount]).mapError( _ => InvalidJsonBody) account <-
-      * if(jsonBody.accountType== AccountType.CurrentAccount) accountService.createCurrentAccount(
-      * jsonBody.name, jsonBody.email ) else accountService.createSavingAccount( jsonBody.name,
-      * jsonBody.email )
-      *
-      * } yield Response.json(account.toJson).setStatus(Status.Created)
-      */
+    // Creates a new Account from the parsed CreateBankAccount request body and returns it as
+    case req @ Method.POST -> !! / "accounts" =>
+      for {
+        body <- req.bodyAsString.orElseFail(MissingBodyError)
+        jsonBody <- ZIO.fromEither(body.fromJson[CreateBankAccount]).mapError(_ => InvalidJsonBody)
+        account <-
+          if (jsonBody.accountType == CurrentAccount)
+            accountService.createCurrentAccount(
+              jsonBody.balance,
+              jsonBody.customerId,
+              jsonBody.overDraft,
+            )
+          else
+            accountService.createSavingAccount(
+              jsonBody.balance,
+              jsonBody.customerId,
+              jsonBody.interestRate,
+            )
+
+      } yield Response.json(account.toJson).setStatus(Status.Created)
 
     // Deletes a single Account found by their parsed ID and returns a 200 status code indicating success.
     case Method.DELETE -> !! / "accounts" / accountId =>

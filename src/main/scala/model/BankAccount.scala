@@ -8,11 +8,11 @@ final case class BankAccount(
   accountId: String,
   balance: Double,
   createdAt: LocalDateTime,
-  accountStatus: AccountStatus,
+  accountStatus: String,
   customerId: Int,
   overDraft: Option[Double],
   interestRate: Option[Double],
-  accountType: AccountType,
+  accountType: String,
 )
 
 object BankAccount {

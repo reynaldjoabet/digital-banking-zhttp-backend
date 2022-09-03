@@ -6,10 +6,10 @@ import zio.json.DeriveJsonCodec
 
 final case class CreateBankAccount(
   balance: Double,
-  customerId: Long,
+  customerId: Int,
   overDraft: Option[Double],
   interestRate: Option[Double],
-  accountType: AccountType,
+  accountType: String,
 )
 
 object CreateBankAccount {
